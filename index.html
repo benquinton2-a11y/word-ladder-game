@@ -1,0 +1,682 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Word Ladder</title>
+<style>
+  :root {
+    --bg: #1b1d23;
+    --panel: #24262e;
+    --tile: #2f323c;
+    --tile-border: #3d4049;
+    --accent: #6ee7b7;
+    --accent2: #f472b6;
+    --diff: #fbbf24;
+    --text: #e8e9ec;
+    --muted: #8a8d97;
+    --bad: #f87171;
+  }
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0;
+    padding: 0;
+    background: radial-gradient(circle at top, #21232b, #16171c 70%);
+    color: var(--text);
+    font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+    min-height: 100vh;
+  }
+  .wrap {
+    max-width: 560px;
+    margin: 0 auto;
+    padding: 24px 16px 60px;
+  }
+  h1 {
+    text-align: center;
+    font-size: 2rem;
+    letter-spacing: 2px;
+    margin: 8px 0 2px;
+    background: linear-gradient(90deg, var(--accent), var(--accent2));
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+  }
+  .subtitle {
+    text-align: center;
+    color: var(--muted);
+    font-size: 0.9rem;
+    margin-bottom: 20px;
+  }
+  .panel {
+    background: var(--panel);
+    border-radius: 14px;
+    padding: 18px;
+    box-shadow: 0 8px 30px rgba(0,0,0,0.35);
+    margin-bottom: 16px;
+  }
+  .stats {
+    display: flex;
+    justify-content: space-between;
+    font-size: 0.85rem;
+    color: var(--muted);
+    margin-bottom: 14px;
+    flex-wrap: wrap;
+    gap: 6px;
+  }
+  .stats b { color: var(--text); }
+  .ladder {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    margin-bottom: 14px;
+  }
+  .row {
+    display: flex;
+    gap: 6px;
+    justify-content: center;
+    align-items: center;
+  }
+  .tile {
+    width: 46px;
+    height: 46px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--tile);
+    border: 1px solid var(--tile-border);
+    border-radius: 8px;
+    font-weight: 700;
+    font-size: 1.2rem;
+    text-transform: uppercase;
+    transition: transform 0.15s ease, background 0.2s ease, border-color 0.2s ease;
+  }
+  .row.start .tile { background: #22303a; border-color: var(--accent); color: var(--accent); }
+  .row.target .tile { background: #3a2233; border-color: var(--accent2); color: var(--accent2); }
+  .row.solved .tile { background: #223a2a; border-color: var(--accent); }
+  .row.diff .tile.changed {
+    border-color: var(--diff);
+    color: var(--diff);
+    animation: pop 0.25s ease;
+  }
+  @keyframes pop {
+    0% { transform: scale(1); }
+    50% { transform: scale(1.15); }
+    100% { transform: scale(1); }
+  }
+  .row.shake { animation: shake 0.3s ease; }
+  @keyframes shake {
+    0%,100% { transform: translateX(0); }
+    25% { transform: translateX(-6px); }
+    75% { transform: translateX(6px); }
+  }
+  .row.shake .tile { border-color: var(--bad); }
+
+  .input-area {
+    display: flex;
+    gap: 8px;
+    justify-content: center;
+  }
+  #wordInput {
+    flex: 1;
+    max-width: 260px;
+    background: var(--tile);
+    border: 1px solid var(--tile-border);
+    color: var(--text);
+    font-size: 1.1rem;
+    text-transform: uppercase;
+    text-align: center;
+    letter-spacing: 4px;
+    border-radius: 8px;
+    padding: 10px;
+    outline: none;
+  }
+  #wordInput:focus { border-color: var(--accent); }
+  button {
+    background: var(--tile);
+    border: 1px solid var(--tile-border);
+    color: var(--text);
+    border-radius: 8px;
+    padding: 10px 14px;
+    font-size: 0.95rem;
+    cursor: pointer;
+    transition: background 0.15s ease, transform 0.1s ease;
+  }
+  button:hover { background: #383b46; }
+  button:active { transform: scale(0.96); }
+  button.primary { background: var(--accent); color: #10241a; border-color: var(--accent); font-weight: 700; }
+  button.primary:hover { background: #7ff0c0; }
+  .controls {
+    display: flex;
+    justify-content: center;
+    gap: 8px;
+    margin-top: 14px;
+    flex-wrap: wrap;
+  }
+  #message {
+    text-align: center;
+    min-height: 20px;
+    font-size: 0.9rem;
+    color: var(--muted);
+    margin-top: 8px;
+  }
+  #message.error { color: var(--bad); }
+  #message.hint { color: var(--diff); }
+
+  .win-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(10,10,14,0.75);
+    display: none;
+    align-items: center;
+    justify-content: center;
+    z-index: 10;
+  }
+  .win-overlay.show { display: flex; }
+  .win-card {
+    background: var(--panel);
+    border-radius: 16px;
+    padding: 32px 28px;
+    text-align: center;
+    max-width: 320px;
+    box-shadow: 0 20px 60px rgba(0,0,0,0.5);
+    animation: winPop 0.35s ease;
+  }
+  @keyframes winPop {
+    0% { transform: scale(0.7); opacity: 0; }
+    100% { transform: scale(1); opacity: 1; }
+  }
+  .win-card h2 {
+    margin: 0 0 6px;
+    font-size: 1.6rem;
+    color: var(--accent);
+  }
+  .win-card p { color: var(--muted); margin: 6px 0; }
+  .win-card .score { font-size: 2.2rem; font-weight: 800; margin: 10px 0; }
+  .confetti {
+    position: fixed;
+    top: -10px;
+    width: 8px;
+    height: 14px;
+    opacity: 0.9;
+    pointer-events: none;
+    z-index: 20;
+    animation: fall linear forwards;
+  }
+  @keyframes fall {
+    to { transform: translateY(105vh) rotate(540deg); opacity: 0.3; }
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>WORD LADDER</h1>
+  <div class="subtitle">Change one letter at a time to climb from start to target.</div>
+
+  <div class="panel">
+    <div class="stats">
+      <span>Moves: <b id="moveCount">0</b></span>
+      <span>Par: <b id="parCount">–</b></span>
+      <span id="dailyTag"></span>
+    </div>
+
+    <div class="ladder" id="ladder"></div>
+
+    <div class="input-area">
+      <input id="wordInput" maxlength="6" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="next word">
+      <button class="primary" id="submitBtn">Enter</button>
+    </div>
+    <div id="message"></div>
+
+    <div class="controls">
+      <button id="hintBtn">💡 Hint</button>
+      <button id="undoBtn">↩ Undo</button>
+      <button id="dailyBtn">📅 Daily</button>
+      <button id="newBtn">🎲 Random</button>
+    </div>
+  </div>
+</div>
+
+<div class="win-overlay" id="winOverlay">
+  <div class="win-card">
+    <h2>Solved! 🎉</h2>
+    <div class="score" id="winScore">0</div>
+    <p id="winPar"></p>
+    <button class="primary" id="playAgainBtn">Play Again</button>
+  </div>
+</div>
+
+<script>
+// ---------- Dictionary ----------
+const WORD_LIST = `
+bat cat eat fat hat mat oat pat rat sat vat
+bit fit hit kit lit pit sit wit nit
+bot cot dot got hot jot lot not pot rot tot
+but cut gut hut jut nut put rut
+bag gag hag lag nag rag sag tag wag
+big dig fig gig jig pig rig wig
+bog cog dog fog hog jog log
+bug dug hug jug mug pug rug tug
+ban can fan man pan ran tan van
+bin din fin gin kin pin sin tin win
+den hen men pen ten
+bun fun gun nun pun run sun
+bad dad fad had lad mad pad sad
+bed fed led red wed
+bid did hid kid lid mid rid
+cod god mod nod pod rod sod
+bar car ear far jar mar oar par tar war
+bay day gay hay jay lay may pay ray say way
+ball call fall gall hall mall tall wall
+bill dill fill gill hill kill mill pill sill till will
+bell cell dell fell hell sell tell well yell
+doll poll roll toll
+bull dull full gull hull mull null
+back hack lack pack rack sack tack
+kick lick nick pick sick tick wick
+dock lock mock rock sock
+buck duck luck muck puck suck tuck yuck
+came fame game lame name same tame
+dime lime mime time
+dome home some tome
+cane lane mane pane sane vane
+dine fine line mine nine pine vine wine
+bone cone gone lone none tone zone
+dune tune
+cape gape nape tape
+care dare bare fare hare mare pare rare ware
+cart dart part tart
+case vase
+cash dash gash hash lash mash rash sash wash
+cast fast last mast past vast
+cold bold fold gold hold mold sold told
+cook book hook look nook rook took
+core more sore tore wore bore
+corn born horn worn
+cost host most post
+crab drab grab
+dank rank sank tank yank bank
+duel fuel
+face lace mace pace race
+fall tall wall hall mall ball call
+farm form
+gate hate late mate rate date fate
+gaze haze maze
+gear hear near sear tear wear year
+girl
+glow slow flow grow show snow
+goal coal foal
+gold bold cold fold hold mold sold told
+good hood mood wood food
+grip trip drip
+half calf
+hand band land sand wand
+head lead read bead dead
+heat meat neat seat feat
+help kelp
+here mere were
+kind mind find bind
+king ring sing wing
+lake bake cake fake make rake sake take wake
+lamp camp damp ramp
+land band hand sand wand
+lawn dawn fawn pawn yawn
+mail nail rail sail tail wail bail fail jail
+main pain rain vain gain
+mark bark dark park lark park
+mask task
+mint hint lint tint
+moon noon soon
+neck deck peck
+nest best rest test vest west zest
+pack rack sack tack back hack lack
+park dark bark
+peak weak leak beak
+pick sick lick kick tick wick nick
+pine wine dine fine line mine nine vine
+pond bond fond
+pool cool fool tool
+port sort fort
+race lace pace face mace
+ramp camp damp lamp
+rich
+ride hide side wide tide
+road load toad
+robe rope rose nose hose pose
+rock sock dock lock mock
+rope ripe wipe pipe
+rose nose hose pose dose
+rust dust bust just must gust
+salt malt halt
+sand band hand land wand
+seed feed weed need
+sink link mink pink rink wink
+soap
+sock rock lock dock mock sick
+sold bold cold fold gold hold mold told
+song long
+sore core more tore wore bore
+stop step stem
+sung rung hung
+tank rank bank dank sank yank
+tape gape nape cape
+tide hide ride side wide
+time dime lime mime
+tone bone cone gone lone none zone
+took book cook hook look nook rook
+tore core sore more wore bore
+town gown down
+tree free
+trip grip drip
+wall ball call fall hall mall tall
+wide hide ride side tide
+wind mind find bind kind
+wing king ring sing
+wire hire fire tire
+wise rise
+`.trim().split(/\s+/);
+
+const WORDS = [...new Set(WORD_LIST.map(w => w.toLowerCase()))];
+const byLength = {};
+WORDS.forEach(w => {
+  (byLength[w.length] = byLength[w.length] || []).push(w);
+});
+
+function diffByOne(a, b) {
+  if (a.length !== b.length) return false;
+  let diffs = 0;
+  for (let i = 0; i < a.length; i++) if (a[i] !== b[i]) diffs++;
+  return diffs === 1;
+}
+
+// Build adjacency graph per length, cached
+const graphCache = {};
+function getGraph(len) {
+  if (graphCache[len]) return graphCache[len];
+  const list = byLength[len] || [];
+  const g = {};
+  list.forEach(w => g[w] = []);
+  for (let i = 0; i < list.length; i++) {
+    for (let j = i + 1; j < list.length; j++) {
+      if (diffByOne(list[i], list[j])) {
+        g[list[i]].push(list[j]);
+        g[list[j]].push(list[i]);
+      }
+    }
+  }
+  graphCache[len] = g;
+  return g;
+}
+
+function bfsDistances(len, source) {
+  const g = getGraph(len);
+  const dist = { [source]: 0 };
+  const queue = [source];
+  while (queue.length) {
+    const cur = queue.shift();
+    for (const nb of g[cur] || []) {
+      if (!(nb in dist)) {
+        dist[nb] = dist[cur] + 1;
+        queue.push(nb);
+      }
+    }
+  }
+  return dist;
+}
+
+// ---------- Puzzle generation ----------
+function seededRandom(seed) {
+  let x = Math.sin(seed) * 10000;
+  return x - Math.floor(x);
+}
+
+function pickPuzzle(seed) {
+  const lengths = Object.keys(byLength).map(Number).filter(l => byLength[l].length >= 8);
+  let rand = seed !== undefined ? mulberry32(seed) : Math.random;
+  for (let attempt = 0; attempt < 60; attempt++) {
+    const len = lengths[Math.floor(rand() * lengths.length)];
+    const candidates = byLength[len];
+    const start = candidates[Math.floor(rand() * candidates.length)];
+    const dist = bfsDistances(len, start);
+    const targets = Object.keys(dist).filter(w => dist[w] >= 3 && dist[w] <= 6 && w !== start);
+    if (targets.length) {
+      const target = targets[Math.floor(rand() * targets.length)];
+      return { start, target, par: dist[target] };
+    }
+  }
+  // fallback: guaranteed pair
+  return { start: 'cat', target: 'dog', par: bfsDistances(3, 'cat').dog || 3 };
+}
+
+function mulberry32(a) {
+  return function() {
+    a |= 0; a = a + 0x6D2B79F5 | 0;
+    let t = Math.imul(a ^ a >>> 15, 1 | a);
+    t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t;
+    return ((t ^ t >>> 14) >>> 0) / 4294967296;
+  };
+}
+
+function dailySeed() {
+  const d = new Date();
+  const key = `${d.getFullYear()}${d.getMonth()+1}${d.getDate()}`;
+  let h = 0;
+  for (let i = 0; i < key.length; i++) h = (h * 31 + key.charCodeAt(i)) >>> 0;
+  return h;
+}
+
+// ---------- Game state ----------
+let state = {
+  start: '', target: '', par: 0,
+  chain: [], solved: false, isDaily: false
+};
+
+const ladderEl = document.getElementById('ladder');
+const inputEl = document.getElementById('wordInput');
+const messageEl = document.getElementById('message');
+const moveCountEl = document.getElementById('moveCount');
+const parCountEl = document.getElementById('parCount');
+const dailyTagEl = document.getElementById('dailyTag');
+const winOverlay = document.getElementById('winOverlay');
+const winScoreEl = document.getElementById('winScore');
+const winParEl = document.getElementById('winPar');
+
+function startPuzzle(puzzle, isDaily) {
+  state = { start: puzzle.start, target: puzzle.target, par: puzzle.par, chain: [puzzle.start], solved: false, isDaily };
+  dailyTagEl.textContent = isDaily ? '★ Daily Puzzle' : '';
+  parCountEl.textContent = puzzle.par;
+  moveCountEl.textContent = '0';
+  winOverlay.classList.remove('show');
+  setMessage('');
+  render();
+  inputEl.value = '';
+  inputEl.focus();
+
+  if (isDaily) {
+    try {
+      const savedDay = localStorage.getItem('wl_daily_date');
+      const today = new Date().toDateString();
+      if (savedDay === today) {
+        const savedChain = JSON.parse(localStorage.getItem('wl_daily_chain') || 'null');
+        if (savedChain && savedChain[0] === puzzle.start) {
+          state.chain = savedChain;
+          state.solved = savedChain[savedChain.length - 1] === puzzle.target;
+          moveCountEl.textContent = state.chain.length - 1;
+          render();
+          if (state.solved) showWin();
+        }
+      }
+    } catch (e) { /* storage unavailable (private mode, sandboxed preview, etc.) */ }
+  }
+}
+
+function persistDaily() {
+  if (!state.isDaily) return;
+  try {
+    localStorage.setItem('wl_daily_date', new Date().toDateString());
+    localStorage.setItem('wl_daily_chain', JSON.stringify(state.chain));
+  } catch (e) { /* storage unavailable */ }
+}
+
+function makeTile(letter, extraClass) {
+  const div = document.createElement('div');
+  div.className = 'tile' + (extraClass ? ' ' + extraClass : '');
+  div.textContent = letter;
+  return div;
+}
+
+function render() {
+  ladderEl.innerHTML = '';
+
+  // start row
+  const startRow = document.createElement('div');
+  startRow.className = 'row start';
+  state.start.split('').forEach(ch => startRow.appendChild(makeTile(ch)));
+  ladderEl.appendChild(startRow);
+
+  // middle chain (exclude first which is start)
+  for (let i = 1; i < state.chain.length; i++) {
+    const word = state.chain[i];
+    const prev = state.chain[i - 1];
+    const row = document.createElement('div');
+    row.className = 'row diff' + (word === state.target ? ' solved' : '');
+    word.split('').forEach((ch, idx) => {
+      const changed = ch !== prev[idx];
+      row.appendChild(makeTile(ch, changed ? 'changed' : ''));
+    });
+    ladderEl.appendChild(row);
+  }
+
+  // target row (only show as separate if not yet reached)
+  if (state.chain[state.chain.length - 1] !== state.target) {
+    const targetRow = document.createElement('div');
+    targetRow.className = 'row target';
+    state.target.split('').forEach(ch => targetRow.appendChild(makeTile(ch)));
+    ladderEl.appendChild(targetRow);
+  }
+
+  moveCountEl.textContent = state.chain.length - 1;
+}
+
+function setMessage(text, kind) {
+  messageEl.textContent = text;
+  messageEl.className = kind || '';
+}
+
+function submitWord() {
+  if (state.solved) return;
+  const word = inputEl.value.trim().toLowerCase();
+  const last = state.chain[state.chain.length - 1];
+
+  if (!word) return;
+  if (word.length !== state.start.length) {
+    return fail(`Word must be ${state.start.length} letters.`);
+  }
+  if (!diffByOne(word, last)) {
+    return fail('Change exactly one letter from the previous word.');
+  }
+  if (!WORDS.includes(word)) {
+    return fail(`"${word}" isn't in the dictionary.`);
+  }
+  if (state.chain.includes(word)) {
+    return fail('Already used that word.');
+  }
+
+  state.chain.push(word);
+  inputEl.value = '';
+  render();
+  persistDaily();
+
+  if (word === state.target) {
+    state.solved = true;
+    setMessage('');
+    persistDaily();
+    setTimeout(showWin, 300);
+  } else {
+    setMessage('');
+  }
+}
+
+function fail(msg) {
+  setMessage(msg, 'error');
+  const rows = ladderEl.querySelectorAll('.row');
+  const lastRow = rows[rows.length - (state.chain[state.chain.length-1] === state.target ? 2 : 1)];
+  inputEl.parentElement.classList.remove('shake');
+  void inputEl.parentElement.offsetWidth;
+  inputEl.style.borderColor = 'var(--bad)';
+  setTimeout(() => { inputEl.style.borderColor = ''; }, 400);
+}
+
+function undo() {
+  if (state.chain.length > 1) {
+    state.chain.pop();
+    state.solved = false;
+    render();
+    persistDaily();
+    setMessage('');
+  }
+}
+
+function hint() {
+  if (state.solved) return;
+  const last = state.chain[state.chain.length - 1];
+  const dist = bfsDistances(state.target.length, state.target);
+  const g = getGraph(state.target.length);
+  const neighbors = g[last] || [];
+  let best = null;
+  neighbors.forEach(n => {
+    if (dist[n] !== undefined && (best === null || dist[n] < dist[best])) {
+      if (!state.chain.includes(n)) best = n;
+    }
+  });
+  if (best) {
+    setMessage(`Hint: try a word close to "${best[0]}${'•'.repeat(best.length-1)}"`, 'hint');
+    inputEl.value = best;
+    inputEl.focus();
+    inputEl.select();
+  } else {
+    setMessage("No hint available from here — try Undo.", 'hint');
+  }
+}
+
+function showWin() {
+  const moves = state.chain.length - 1;
+  winScoreEl.textContent = moves;
+  const diff = moves - state.par;
+  winParEl.textContent = diff <= 0
+    ? `Par or better! (par ${state.par})`
+    : `Par was ${state.par} — ${diff} move${diff>1?'s':''} over.`;
+  winOverlay.classList.add('show');
+  launchConfetti();
+}
+
+function launchConfetti() {
+  const colors = ['#6ee7b7', '#f472b6', '#fbbf24', '#60a5fa'];
+  for (let i = 0; i < 60; i++) {
+    const el = document.createElement('div');
+    el.className = 'confetti';
+    el.style.left = Math.random() * 100 + 'vw';
+    el.style.background = colors[Math.floor(Math.random() * colors.length)];
+    el.style.animationDuration = (2 + Math.random() * 1.5) + 's';
+    el.style.animationDelay = (Math.random() * 0.3) + 's';
+    document.body.appendChild(el);
+    setTimeout(() => el.remove(), 4000);
+  }
+}
+
+// ---------- Controls ----------
+document.getElementById('submitBtn').addEventListener('click', submitWord);
+inputEl.addEventListener('keydown', e => { if (e.key === 'Enter') submitWord(); });
+document.getElementById('undoBtn').addEventListener('click', undo);
+document.getElementById('hintBtn').addEventListener('click', hint);
+document.getElementById('newBtn').addEventListener('click', () => startPuzzle(pickPuzzle(), false));
+document.getElementById('dailyBtn').addEventListener('click', () => startPuzzle(pickPuzzle(dailySeed()), true));
+document.getElementById('playAgainBtn').addEventListener('click', () => {
+  winOverlay.classList.remove('show');
+  startPuzzle(pickPuzzle(), false);
+});
+
+// ---------- Init ----------
+startPuzzle(pickPuzzle(dailySeed()), true);
+</script>
+</body>
+</html>
