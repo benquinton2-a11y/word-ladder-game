@@ -600,8 +600,12 @@ function fail(msg) {
   setMessage(msg, 'error');
   const rows = ladderEl.querySelectorAll('.row');
   const lastRow = rows[rows.length - (state.chain[state.chain.length-1] === state.target ? 2 : 1)];
-  inputEl.parentElement.classList.remove('shake');
-  void inputEl.parentElement.offsetWidth;
+  if (lastRow) {
+    lastRow.classList.remove('shake');
+    void lastRow.offsetWidth;
+    lastRow.classList.add('shake');
+    setTimeout(() => lastRow.classList.remove('shake'), 300);
+  }
   inputEl.style.borderColor = 'var(--bad)';
   setTimeout(() => { inputEl.style.borderColor = ''; }, 400);
 }
